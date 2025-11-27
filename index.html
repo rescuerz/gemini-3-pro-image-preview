@@ -1177,32 +1177,46 @@
             this.loading.style.display = 'block';
             this.error.style.display = 'none';
             this.grid.innerHTML = '';
-            const URL = 'http://gh.halonice.com/https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json';
+            
+            const URLS = [
+                'https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json',
+                'https://cdn.jsdelivr.net/gh/glidea/banana-prompt-quicker@main/prompts.json',
+                'https://fastly.jsdelivr.net/gh/glidea/banana-prompt-quicker@main/prompts.json',
+                'http://gh.halonice.com/https://raw.githubusercontent.com/glidea/banana-prompt-quicker/refs/heads/main/prompts.json'
+            ];
 
-            try {
-                const res = await fetch(URL, { timeout: 10000 });
+            let lastError = null;
+            for (let i = 0; i < URLS.length; i++) {
+                try {
+                    const res = await fetch(URLS[i], { timeout: 10000 });
 
-                if(!res.ok) {
-                    throw new Error(`HTTP ${res.status}: 数据加载失败`);
+                    if(!res.ok) {
+                        throw new Error(`HTTP ${res.status}: 数据加载失败`);
+                    }
+
+                    const data = await res.json();
+
+                    if (!Array.isArray(data) || data.length === 0) {
+                        throw new Error('数据格式错误或为空');
+                    }
+
+                    this.allData = data;
+                    this.loading.style.display = 'none';
+                    this.render();
+                    showToast(`成功加载 ${data.length} 个提示词`, 'success');
+                    return;
+
+                } catch(e) {
+                    console.warn(`源 ${i + 1} 失败:`, URLS[i], e.message);
+                    lastError = e;
+                    if (i < URLS.length - 1) continue;
                 }
-
-                const data = await res.json();
-
-                if (!Array.isArray(data) || data.length === 0) {
-                    throw new Error('数据格式错误或为空');
-                }
-
-                this.allData = data;
-                this.loading.style.display = 'none';
-                this.render();
-                showToast(`成功加载 ${data.length} 个提示词`, 'success');
-
-            } catch(e) {
-                console.error('Banana Prompt fetch error:', e);
-                this.loading.style.display = 'none';
-                this.error.style.display = 'block';
-                ErrorHandler.show('加载提示词失败', e.message || '请检查网络连接后重试');
             }
+
+            console.error('所有源均失败:', lastError);
+            this.loading.style.display = 'none';
+            this.error.style.display = 'block';
+            ErrorHandler.show('加载提示词失败', '所有数据源均不可用，请稍后重试');
         },
         filter(type, btnEl) {
             this.currentFilter = type;
